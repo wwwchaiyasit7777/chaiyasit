@@ -4,13 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Maintenance Electric Pro Dashboard</title>
-    <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js for visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Chart.js Plugin for Labels -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
-    <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
@@ -21,9 +17,15 @@
 <body class="p-4 md:p-8">
 
     <div class="max-w-7xl mx-auto">
-        <header class="mb-8">
-            <h1 class="text-3xl font-bold text-slate-800">รายงาน Maintenance Electric</h1>
-            <p class="text-slate-500">ติดตามและวิเคราะห์สถานะงานไฟฟ้าประจำวัน</p>
+        <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-800">รายงาน Maintenance Electric</h1>
+                <p class="text-slate-500">ติดตามและวิเคราะห์สถานะงานไฟฟ้าประจำวัน</p>
+            </div>
+            <button onclick="refreshData()" class="mt-4 md:mt-0 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-2xl shadow-lg transition duration-300 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.001 9.334a1 1 0 011.885.666 5.002 5.002 0 008.115 2.567H11a1 1 0 010-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566z" clip-rule="evenodd" /></svg>
+                อัปเดตข้อมูลล่าสุด
+            </button>
         </header>
 
         <!-- Filters Section -->
@@ -53,7 +55,7 @@
         <div class="glass-card rounded-3xl shadow-lg overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
-                    <thead class="bg-slate-200 text-slate-700 uppercase text-xs" id="tableHeader"></thead>
+                    <thead class="bg-slate-800 text-white uppercase text-xs" id="tableHeader"></thead>
                     <tbody class="divide-y divide-slate-100" id="tableBody"></tbody>
                 </table>
             </div>
@@ -61,18 +63,26 @@
     </div>
 
     <script>
-        // ... existing code ...
-        // (Note: The initialization, filtering, and table logic remains unchanged as requested)
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJTzys96pLM72Ip3Pj5iqCLzRX54FB1wjuwDbZmB7o6uDgXtTFX251GprI7BX4WN_Iy13F-Uopi5sq/pub?gid=1734643829&single=true&output=csv';
         let rawData = [];
         let statusChart, picChart;
         const IDX_DATE = 0; const IDX_PIC = 4; const IDX_MACHINE = 5; const IDX_TYPE = 8; const IDX_STATUS = 10;
 
-        window.onload = () => {
-            fetch(CSV_URL).then(r => r.text()).then(text => {
-                Papa.parse(text, { header: true, complete: res => { rawData = res.data; initFilters(); applyFilters(); } });
-            });
-        };
+        // Force reload by adding timestamp
+        function refreshData() {
+            console.log("Refreshing data...");
+            fetch(CSV_URL + '&t=' + new Date().getTime())
+                .then(r => r.text())
+                .then(text => {
+                    Papa.parse(text, { header: true, complete: res => { 
+                        rawData = res.data; 
+                        initFilters(); 
+                        applyFilters(); 
+                    }});
+                });
+        }
+
+        window.onload = refreshData;
 
         function initFilters() {
             const cols = Object.keys(rawData[0] || {});
@@ -80,7 +90,7 @@
             for (const [id, key] of Object.entries(mapping)) {
                 const el = document.getElementById(id);
                 const vals = [...new Set(rawData.map(d => d[key]).filter(Boolean))];
-                vals.forEach(v => el.innerHTML += `<option value="${v}">${v}</option>`);
+                el.innerHTML = '<option value="">ทั้งหมด</option>' + vals.map(v => `<option value="${v}">${v}</option>`).join('');
                 el.addEventListener('change', applyFilters);
             }
             ['dateStart', 'dateEnd'].forEach(id => document.getElementById(id).addEventListener('change', applyFilters));
@@ -99,7 +109,7 @@
             const filtered = rawData.filter(d => {
                 const matches = [(!filters.type || d[cols[IDX_TYPE]] === filters.type), (!filters.pic || d[cols[IDX_PIC]] === filters.pic), (!filters.machine || d[cols[IDX_MACHINE]] === filters.machine), (!filters.status || d[cols[IDX_STATUS]] === filters.status)];
                 if (filters.start || filters.end) {
-                    const dParts = d[cols[IDX_DATE]].split('/');
+                    const dParts = d[cols[IDX_DATE]] ? d[cols[IDX_DATE]].split('/') : [];
                     const dDate = new Date(`${dParts[2]}-${dParts[1]}-${dParts[0]}`);
                     matches.push((!filters.start || dDate >= new Date(filters.start)) && (!filters.end || dDate <= new Date(filters.end)));
                 }
@@ -127,10 +137,9 @@
             const tbody = document.getElementById('tableBody');
             const thead = document.getElementById('tableHeader');
             thead.innerHTML = `<tr>${cols.map(c => `<th class="p-4 whitespace-nowrap">${c}</th>`).join('')}</tr>`;
-            tbody.innerHTML = data.map(row => `<tr class="hover:bg-slate-50">${cols.map(c => `<td class="p-4 whitespace-nowrap">${row[c] || '-'}</td>`).join('')}</tr>`).join('');
+            tbody.innerHTML = data.map(row => `<tr class="hover:bg-slate-50 transition">${cols.map(c => `<td class="p-4 whitespace-nowrap">${row[c] || '-'}</td>`).join('')}</tr>`).join('');
         }
 
-        // --- FIXED renderCharts ---
         function renderCharts(data, sKey, pKey) {
             if (statusChart) statusChart.destroy();
             if (picChart) picChart.destroy();
@@ -148,9 +157,9 @@
                         datalabels: { 
                             formatter: (v, ctx) => { let p = Math.round(v/data.length*100); return `${v} (${p}%)`; }, 
                             color: '#fff', 
-                            font: { weight: 'bold', size: 14 } 
+                            font: { weight: 'bold', size: 16 } 
                         },
-                        title: { display: true, text: 'สถานะงาน' }
+                        title: { display: true, text: 'สถานะงาน', font: { size: 18 } }
                     }
                 }
             });
@@ -169,10 +178,11 @@
                             anchor: 'end', 
                             align: 'right', 
                             formatter: (v, ctx) => { let p = Math.round(v/data.length*100); return `${v} (${p}%)`; },
-                            font: { weight: 'bold', size: 14 }
+                            font: { weight: 'bold', size: 16 }
                         },
-                        title: { display: true, text: 'งานแยกตามผู้รับผิดชอบ' }
-                    }
+                        title: { display: true, text: 'งานแยกตามผู้รับผิดชอบ', font: { size: 18 } }
+                    },
+                    scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
                 }
             });
         }
