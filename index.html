@@ -145,7 +145,11 @@
                 options: {
                     responsive: true,
                     plugins: {
-                        datalabels: { formatter: (v, ctx) => { let p = Math.round(v/data.length*100); return `${v} (${p}%)`; }, color: '#fff', font: { weight: 'bold' } },
+                        datalabels: { 
+                            formatter: (v, ctx) => { let p = Math.round(v/data.length*100); return `${v} (${p}%)`; }, 
+                            color: '#fff', 
+                            font: { weight: 'bold', size: 14 } 
+                        },
                         title: { display: true, text: 'สถานะงาน' }
                     }
                 }
@@ -161,7 +165,12 @@
                     indexAxis: 'y',
                     responsive: true,
                     plugins: {
-                        datalabels: { anchor: 'end', align: 'right', formatter: (v, ctx) => { let p = Math.round(v/data.length*100); return `${v} (${p}%)`; } },
+                        datalabels: { 
+                            anchor: 'end', 
+                            align: 'right', 
+                            formatter: (v, ctx) => { let p = Math.round(v/data.length*100); return `${v} (${p}%)`; },
+                            font: { weight: 'bold', size: 14 }
+                        },
                         title: { display: true, text: 'งานแยกตามผู้รับผิดชอบ' }
                     }
                 }
