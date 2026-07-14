@@ -4,99 +4,202 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Maintenance Electric Pro Dashboard</title>
+    <!-- โหลด Tailwind CSS และไลบรารีทำกราฟ/จัดการ CSV -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Kanit', sans-serif; background-color: #f1f5f9; }
-        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        body { 
+            font-family: 'Kanit', sans-serif; 
+            background-color: #f8fafc; 
+        }
+        .glass-card { 
+            background: rgba(255, 255, 255, 0.95); 
+            backdrop-filter: blur(10px); 
+            border: 1px solid rgba(226, 232, 240, 0.8); 
+        }
+        .chart-container { 
+            position: relative; 
+            width: 100%; 
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
 
     <div class="max-w-7xl mx-auto">
-        <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between">
+        <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
                 <h1 class="text-3xl font-bold text-slate-800">รายงาน Maintenance Electric</h1>
-                <p class="text-slate-500">ติดตามและวิเคราะห์สถานะงานไฟฟ้าประจำวัน</p>
+                <p class="text-slate-500">ติดตามและวิเคราะห์สถานะงานไฟฟ้าประจำวันอย่างแม่นยำ</p>
             </div>
-            <button onclick="refreshData()" class="mt-4 md:mt-0 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-2xl shadow-lg transition duration-300 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.001 9.334a1 1 0 011.885.666 5.002 5.002 0 008.115 2.567H11a1 1 0 010-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566z" clip-rule="evenodd" /></svg>
-                อัปเดตข้อมูลล่าสุด
+            <!-- ปุ่มอัปเดตข้อมูลแบบดึงใหม่โดยตรงจาก Google Sheets ไม่ผ่าน Cache -->
+            <button onclick="refreshData()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-2xl shadow-lg transition duration-300 flex items-center justify-center gap-2 w-full md:w-auto">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.001 9.334a1 1 0 011.885.666 5.002 5.002 0 008.115 2.567H11a1 1 0 010-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566z" clip-rule="evenodd" />
+                </svg>
+                อัปเดตข้อมูล
             </button>
         </header>
 
-        <!-- Filters Section -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-8 glass-card p-6 rounded-3xl shadow-lg">
-            <div class="flex flex-col"><label class="text-xs font-semibold text-slate-400 mb-1">เริ่ม</label><input type="date" id="dateStart" class="bg-slate-100 rounded-xl p-2 focus:ring-2 focus:ring-indigo-400"></div>
-            <div class="flex flex-col"><label class="text-xs font-semibold text-slate-400 mb-1">สิ้นสุด</label><input type="date" id="dateEnd" class="bg-slate-100 rounded-xl p-2 focus:ring-2 focus:ring-indigo-400"></div>
-            <div class="flex flex-col"><label class="text-xs font-semibold text-slate-400 mb-1">ประเภทงาน (I)</label><select id="filterType" class="bg-slate-100 rounded-xl p-2"><option value="">ทั้งหมด</option></select></div>
-            <div class="flex flex-col"><label class="text-xs font-semibold text-slate-400 mb-1">ผู้รับผิดชอบ (E)</label><select id="filterPic" class="bg-slate-100 rounded-xl p-2"><option value="">ทั้งหมด</option></select></div>
-            <div class="flex flex-col"><label class="text-xs font-semibold text-slate-400 mb-1">เครื่องจักร (F)</label><select id="filterMachine" class="bg-slate-100 rounded-xl p-2"><option value="">ทั้งหมด</option></select></div>
-            <div class="flex flex-col"><label class="text-xs font-semibold text-slate-400 mb-1">สถานะ (K)</label><select id="filterStatus" class="bg-slate-100 rounded-xl p-2"><option value="">ทั้งหมด</option></select></div>
+        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8 glass-card p-6 rounded-3xl shadow-sm">
+            <div class="flex flex-col">
+                <label class="text-xs font-semibold text-slate-400 mb-1">เริ่ม</label>
+                <input type="date" id="dateStart" class="bg-slate-50 rounded-xl p-2 border border-slate-200">
+            </div>
+            <div class="flex flex-col">
+                <label class="text-xs font-semibold text-slate-400 mb-1">สิ้นสุด</label>
+                <input type="date" id="dateEnd" class="bg-slate-50 rounded-xl p-2 border border-slate-200">
+            </div>
+            <div class="flex flex-col">
+                <label class="text-xs font-semibold text-slate-400 mb-1">ประเภทงาน (I)</label>
+                <select id="filterType" class="bg-slate-50 rounded-xl p-2 border border-slate-200">
+                    <option value="">ทั้งหมด</option>
+                </select>
+            </div>
+            <div class="flex flex-col">
+                <label class="text-xs font-semibold text-slate-400 mb-1">ผู้รับผิดชอบ (E)</label>
+                <select id="filterPic" class="bg-slate-50 rounded-xl p-2 border border-slate-200">
+                    <option value="">ทั้งหมด</option>
+                </select>
+            </div>
+            <div class="flex flex-col">
+                <label class="text-xs font-semibold text-slate-400 mb-1">เครื่องจักร (F)</label>
+                <select id="filterMachine" class="bg-slate-50 rounded-xl p-2 border border-slate-200">
+                    <option value="">ทั้งหมด</option>
+                </select>
+            </div>
+            <div class="flex flex-col">
+                <label class="text-xs font-semibold text-slate-400 mb-1">สถานะ (K)</label>
+                <select id="filterStatus" class="bg-slate-50 rounded-xl p-2 border border-slate-200">
+                    <option value="">ทั้งหมด</option>
+                </select>
+            </div>
         </div>
 
-        <!-- KPI Cards -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="glass-card p-6 rounded-3xl shadow-md border-l-8 border-indigo-500"><h3 class="text-slate-500">งานทั้งหมด</h3><p id="totalJobs" class="text-4xl font-bold text-slate-800">0</p></div>
-            <div class="glass-card p-6 rounded-3xl shadow-md border-l-8 border-green-500"><h3 class="text-slate-500">งานที่เสร็จ</h3><p id="finishedJobs" class="text-4xl font-bold text-green-600">0</p><p id="finishedPct" class="text-sm text-green-400">0%</p></div>
-            <div class="glass-card p-6 rounded-3xl shadow-md border-l-8 border-amber-500"><h3 class="text-slate-500">งานค้าง</h3><p id="pendingJobs" class="text-4xl font-bold text-amber-600">0</p><p id="pendingPct" class="text-sm text-amber-400">0%</p></div>
+            <div class="glass-card p-6 rounded-3xl shadow-sm border-l-8 border-indigo-500">
+                <h3 class="text-slate-500 font-semibold">งานทั้งหมด</h3>
+                <p id="totalJobs" class="text-4xl font-bold text-slate-800">0</p>
+            </div>
+            <div class="glass-card p-6 rounded-3xl shadow-sm border-l-8 border-green-500">
+                <h3 class="text-slate-500 font-semibold">งานที่เสร็จ</h3>
+                <p id="finishedJobs" class="text-4xl font-bold text-green-600">0</p>
+                <p id="finishedPct" class="text-sm text-green-500 font-semibold">0%</p>
+            </div>
+            <div class="glass-card p-6 rounded-3xl shadow-sm border-l-8 border-amber-500">
+                <h3 class="text-slate-500 font-semibold">งานค้าง</h3>
+                <p id="pendingJobs" class="text-4xl font-bold text-amber-600">0</p>
+                <p id="pendingPct" class="text-sm text-amber-500 font-semibold">0%</p>
+            </div>
         </div>
 
-        <!-- Charts Section -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <div class="glass-card p-6 rounded-3xl shadow-lg"><canvas id="statusChart" class="max-h-80"></canvas></div>
-            <div class="glass-card p-6 rounded-3xl shadow-lg"><canvas id="picChart" class="max-h-80"></canvas></div>
+            <!-- กราฟสถานะงานทรงกลม -->
+            <div class="glass-card p-6 rounded-3xl shadow-sm">
+                <div class="chart-container h-[350px]">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+            <!-- กราฟแท่งแนวนอนผู้รับผิดชอบงาน -->
+            <div class="glass-card p-6 rounded-3xl shadow-sm">
+                <div class="chart-container" style="min-height: 380px;">
+                    <canvas id="picChart"></canvas>
+                </div>
+            </div>
         </div>
 
-        <!-- Data Table -->
-        <div class="glass-card rounded-3xl shadow-lg overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
+        <div class="glass-card rounded-3xl shadow-sm overflow-hidden p-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">ตารางข้อมูลงานไฟฟ้า</h3>
+            <div class="overflow-x-auto rounded-2xl border border-slate-100">
+                <table class="w-full text-left border-collapse" id="dataTable">
                     <thead class="bg-slate-800 text-white uppercase text-xs" id="tableHeader"></thead>
-                    <tbody class="divide-y divide-slate-100" id="tableBody"></tbody>
+                    <tbody class="divide-y divide-slate-100 bg-white" id="tableBody"></tbody>
                 </table>
             </div>
         </div>
     </div>
 
     <script>
+        // ใช้ลิงก์ CSV จาก Google Sheets
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJTzys96pLM72Ip3Pj5iqCLzRX54FB1wjuwDbZmB7o6uDgXtTFX251GprI7BX4WN_Iy13F-Uopi5sq/pub?gid=1734643829&single=true&output=csv';
         let rawData = [];
         let statusChart, picChart;
-        const IDX_DATE = 0; const IDX_PIC = 4; const IDX_MACHINE = 5; const IDX_TYPE = 8; const IDX_STATUS = 10;
 
-        // Force reload by adding timestamp
+        // ดึงวันที่โดยตรงจากคอลัมน์ A (ไม่มีการหักลบหรือแปลงค่าปี ค.ศ. ใดๆ)
+        function parseThaiDate(dateStr) {
+            if (!dateStr || dateStr.trim() === '' || dateStr === '-') return null;
+            const parts = dateStr.split('/');
+            if (parts.length !== 3) return null;
+            const d = parseInt(parts[0], 10);
+            const m = parseInt(parts[1], 10);
+            const y = parseInt(parts[2], 10);
+            return new Date(y, m - 1, d);
+        }
+
+        // แปลงฟอร์แมตวันที่ให้ถูกต้องสำหรับใส่ใน Input Date
+        function formatDateToYYYYMMDD(date) {
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        // ฟังก์ชันดึงข้อมูลใหม่ (ข้าม cache โดยต่อ timestamp ท้าย url)
         function refreshData() {
-            console.log("Refreshing data...");
             fetch(CSV_URL + '&t=' + new Date().getTime())
                 .then(r => r.text())
                 .then(text => {
-                    Papa.parse(text, { header: true, complete: res => { 
-                        rawData = res.data; 
-                        initFilters(); 
-                        applyFilters(); 
-                    }});
+                    Papa.parse(text, { 
+                        header: true, 
+                        skipEmptyLines: true,
+                        complete: res => { 
+                            rawData = res.data; 
+                            initFilters(); 
+                            setDefaultDateRange(); 
+                        }
+                    });
                 });
         }
 
-        window.onload = refreshData;
+        // ตั้งค่าตัวกรองเริ่มต้นเป็นช่วง 7 วันล่าสุดที่มีข้อมูลจริงในระบบ
+        function setDefaultDateRange() {
+            const dateCol = Object.keys(rawData[0] || {})[0];
+            const dates = rawData.map(d => parseThaiDate(d[dateCol])).filter(d => d instanceof Date && !isNaN(d));
+            
+            if (dates.length > 0) {
+                const maxDate = new Date(Math.max(...dates));
+                const minDate = new Date(maxDate);
+                minDate.setDate(maxDate.getDate() - 7);
+                
+                document.getElementById('dateStart').value = formatDateToYYYYMMDD(minDate);
+                document.getElementById('dateEnd').value = formatDateToYYYYMMDD(maxDate);
+            }
+            applyFilters();
+        }
 
+        // เริ่มต้นสร้างตัวเลือกใน Select Filters ต่างๆ
         function initFilters() {
             const cols = Object.keys(rawData[0] || {});
-            const mapping = { 'filterType': cols[IDX_TYPE], 'filterPic': cols[IDX_PIC], 'filterMachine': cols[IDX_MACHINE], 'filterStatus': cols[IDX_STATUS] };
-            for (const [id, key] of Object.entries(mapping)) {
+            const filterMap = { 
+                'filterType': cols[8], 
+                'filterPic': cols[4], 
+                'filterMachine': cols[5], 
+                'filterStatus': cols[10] 
+            };
+            for (const [id, key] of Object.entries(filterMap)) {
                 const el = document.getElementById(id);
                 const vals = [...new Set(rawData.map(d => d[key]).filter(Boolean))];
                 el.innerHTML = '<option value="">ทั้งหมด</option>' + vals.map(v => `<option value="${v}">${v}</option>`).join('');
-                el.addEventListener('change', applyFilters);
+                el.onchange = applyFilters;
             }
-            ['dateStart', 'dateEnd'].forEach(id => document.getElementById(id).addEventListener('change', applyFilters));
+            ['dateStart', 'dateEnd'].forEach(id => document.getElementById(id).onchange = applyFilters);
         }
 
+        // คัดกรองและดึงผลลัพธ์ข้อมูลตามผู้ใช้งานเลือก
         function applyFilters() {
+            const cols = Object.keys(rawData[0] || {});
             const filters = {
                 type: document.getElementById('filterType').value,
                 pic: document.getElementById('filterPic').value,
@@ -105,87 +208,158 @@
                 start: document.getElementById('dateStart').value,
                 end: document.getElementById('dateEnd').value
             };
-            const cols = Object.keys(rawData[0] || {});
+            
             const filtered = rawData.filter(d => {
-                const matches = [(!filters.type || d[cols[IDX_TYPE]] === filters.type), (!filters.pic || d[cols[IDX_PIC]] === filters.pic), (!filters.machine || d[cols[IDX_MACHINE]] === filters.machine), (!filters.status || d[cols[IDX_STATUS]] === filters.status)];
+                const matches = [
+                    (!filters.type || d[cols[8]] === filters.type),
+                    (!filters.pic || d[cols[4]] === filters.pic),
+                    (!filters.machine || d[cols[5]] === filters.machine),
+                    (!filters.status || d[cols[10]] === filters.status)
+                ];
                 if (filters.start || filters.end) {
-                    const dParts = d[cols[IDX_DATE]] ? d[cols[IDX_DATE]].split('/') : [];
-                    const dDate = new Date(`${dParts[2]}-${dParts[1]}-${dParts[0]}`);
-                    matches.push((!filters.start || dDate >= new Date(filters.start)) && (!filters.end || dDate <= new Date(filters.end)));
+                    const dDate = parseThaiDate(d[cols[0]]);
+                    if (dDate) {
+                        const start = filters.start ? new Date(filters.start + 'T00:00:00') : new Date(0);
+                        const end = filters.end ? new Date(filters.end + 'T23:59:59') : new Date(9999, 11, 31);
+                        matches.push(dDate >= start && dDate <= end);
+                    } else {
+                        // คัดข้อมูลที่ระบุวันที่ไม่ถูกต้องออก ป้องกันข้อมูลรั่วไหลในสเปรดชีต
+                        matches.push(false);
+                    }
                 }
                 return matches.every(Boolean);
             });
             updateDashboard(filtered);
         }
 
+        // ฟังก์ชันประมวลผลข้อมูลและเปลี่ยนหน้าสรุปผล
         function updateDashboard(data) {
             const cols = Object.keys(rawData[0] || {});
-            const statusKey = cols[IDX_STATUS];
-            const picKey = cols[IDX_PIC];
+            const statusKey = cols[10];
             const finished = data.filter(d => d[statusKey] === 'เสร็จแล้ว').length;
             const pending = data.length - finished;
+            
             document.getElementById('totalJobs').innerText = data.length;
             document.getElementById('finishedJobs').innerText = finished;
-            document.getElementById('finishedPct').innerText = data.length ? Math.round((finished/data.length)*100) + '%' : '0%';
+            document.getElementById('finishedPct').innerText = data.length ? Math.round((finished / data.length) * 100) + '%' : '0%';
             document.getElementById('pendingJobs').innerText = pending;
-            document.getElementById('pendingPct').innerText = data.length ? Math.round((pending/data.length)*100) + '%' : '0%';
+            document.getElementById('pendingPct').innerText = data.length ? Math.round((pending / data.length) * 100) + '%' : '0%';
+            
             renderTable(data, cols);
-            renderCharts(data, statusKey, picKey);
+            renderCharts(data, statusKey, cols[4]);
         }
 
+        // ฟังก์ชันจัดการตารางแสดงข้อมูลอย่างถูกต้อง (ป้องกันการแสดงข้อมูลค้าง)
         function renderTable(data, cols) {
-            const tbody = document.getElementById('tableBody');
-            const thead = document.getElementById('tableHeader');
-            thead.innerHTML = `<tr>${cols.map(c => `<th class="p-4 whitespace-nowrap">${c}</th>`).join('')}</tr>`;
-            tbody.innerHTML = data.map(row => `<tr class="hover:bg-slate-50 transition">${cols.map(c => `<td class="p-4 whitespace-nowrap">${row[c] || '-'}</td>`).join('')}</tr>`).join('');
+            const header = document.getElementById('tableHeader');
+            const body = document.getElementById('tableBody');
+            
+            if (!header || !body) return;
+            
+            // แสดงส่วนหัวตาราง
+            header.innerHTML = `<tr>${cols.map(c => `<th class="p-4 font-semibold text-slate-200 text-sm whitespace-nowrap">${c}</th>`).join('')}</tr>`;
+            
+            // แสดงข้อมูลในแต่ละแถวของตาราง
+            if (data.length === 0) {
+                body.innerHTML = `<tr><td colspan="${cols.length}" class="p-8 text-center text-slate-400">ไม่พบข้อมูลงานตามช่วงเวลาหรือตัวเลือกที่ระบุ</td></tr>`;
+                return;
+            }
+
+            body.innerHTML = data.map(row => {
+                return `<tr class="hover:bg-slate-50 transition duration-150">
+                    ${cols.map(c => `<td class="p-4 text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap">${row[c] || '-'}</td>`).join('')}
+                </tr>`;
+            }).join('');
         }
 
+        // ฟังก์ชันวาดกราฟวิเคราะห์ (แก้ไขปัญหาขนาดตัวเลขและล้นขอบจอเรียบร้อย)
         function renderCharts(data, sKey, pKey) {
             if (statusChart) statusChart.destroy();
             if (picChart) picChart.destroy();
-            const sCounts = data.reduce((acc, d) => { acc[d[sKey]] = (acc[d[sKey]] || 0) + 1; return acc; }, {});
-            const pCounts = data.reduce((acc, d) => { acc[d[pKey]] = (acc[d[pKey]] || 0) + 1; return acc; }, {});
             
             Chart.register(ChartDataLabels);
+            
+            const sCounts = data.reduce((acc, d) => { acc[d[sKey]] = (acc[d[sKey]] || 0) + 1; return acc; }, {});
+            const pCounts = data.reduce((acc, d) => { acc[d[pKey]] = (acc[d[pKey]] || 0) + 1; return acc; }, {});
 
+            // 1. กราฟวงกลมแสดงสถานะงาน
             statusChart = new Chart(document.getElementById('statusChart'), {
                 type: 'doughnut',
-                data: { labels: Object.keys(sCounts), datasets: [{ data: Object.values(sCounts), backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'] }] },
+                data: { 
+                    labels: Object.keys(sCounts), 
+                    datasets: [{ 
+                        data: Object.values(sCounts), 
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'] 
+                    }] 
+                },
                 options: {
-                    responsive: true,
+                    responsive: true, 
+                    maintainAspectRatio: false,
                     plugins: {
                         datalabels: { 
-                            formatter: (v, ctx) => { let p = Math.round(v/data.length*100); return `${v} (${p}%)`; }, 
                             color: '#fff', 
-                            font: { weight: 'bold', size: 16 } 
+                            font: { weight: 'bold', size: 14 }, 
+                            formatter: (v, ctx) => `${v} (${Math.round(v / data.length * 100)}%)` 
                         },
-                        title: { display: true, text: 'สถานะงาน', font: { size: 18 } }
+                        title: { 
+                            display: true, 
+                            text: 'สถานะงานทั้งหมด',
+                            font: { size: 16, weight: 'bold' }
+                        }
                     }
                 }
             });
 
+            // 2. กราฟแท่งแนวนอนสำหรับผู้รับผิดชอบงาน (จัดพื้นที่ขอบขวาเพื่อเลี่ยงการล้น)
             picChart = new Chart(document.getElementById('picChart'), {
                 type: 'bar',
                 data: { 
                     labels: Object.keys(pCounts), 
-                    datasets: [{ label: 'จำนวนงาน', data: Object.values(pCounts), backgroundColor: ['#6366f1', '#ec4899', '#f59e0b', '#8b5cf6', '#14b8a6'] }] 
+                    datasets: [{ 
+                        label: 'จำนวนงาน', 
+                        data: Object.values(pCounts), 
+                        backgroundColor: ['#6366f1', '#ec4899', '#f59e0b', '#3b82f6', '#10b981'] 
+                    }] 
                 },
                 options: {
-                    indexAxis: 'y',
-                    responsive: true,
+                    indexAxis: 'y', 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: {
+                            right: 90 // ให้พื้นที่ขอบด้านขวาของแคนวาส เพื่อกันตัวเลขตกหล่นออกนอกหน้าจอ
+                        }
+                    },
                     plugins: {
                         datalabels: { 
                             anchor: 'end', 
                             align: 'right', 
-                            formatter: (v, ctx) => { let p = Math.round(v/data.length*100); return `${v} (${p}%)`; },
-                            font: { weight: 'bold', size: 16 }
+                            offset: 6,
+                            font: { weight: 'bold', size: 14 }, 
+                            formatter: (v, ctx) => `${v} (${Math.round(v / data.length * 100)}%)` 
                         },
-                        title: { display: true, text: 'งานแยกตามผู้รับผิดชอบ', font: { size: 18 } }
+                        title: { 
+                            display: true, 
+                            text: 'งานแยกตามผู้รับผิดชอบ',
+                            font: { size: 16, weight: 'bold' }
+                        },
+                        legend: {
+                            display: false
+                        }
                     },
-                    scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+                    scales: { 
+                        x: { 
+                            beginAtZero: true, 
+                            grace: '25%', // ขยายสเกลปลายแท่งเพิ่มอีก 25% มั่นใจได้ว่าตัวเลขจะไม่เบียดตกขอบจอ
+                            ticks: { precision: 0 } 
+                        } 
+                    }
                 }
             });
         }
+
+        // สั่งให้ดาวน์โหลดข้อมูลทันทีที่เปิดหน้าเว็บ
+        window.onload = refreshData;
     </script>
 </body>
 </html>
