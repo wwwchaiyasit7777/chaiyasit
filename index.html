@@ -4,151 +4,266 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Maintenance Electric Pro Dashboard</title>
-    <!-- โหลด Tailwind CSS และไลบรารีทำกราฟ/จัดการ CSV -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js & Datalabels Plugin -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <!-- PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <!-- Google Fonts (Kanit) -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { 
-            font-family: 'Kanit', sans-serif; 
-            background-color: #f8fafc; 
-        }
-        .glass-card { 
-            background: rgba(255, 255, 255, 0.95); 
-            backdrop-filter: blur(10px); 
-            border: 1px solid rgba(226, 232, 240, 0.8); 
-        }
-        .chart-container { 
-            position: relative; 
-            width: 100%; 
-        }
+        body { font-family: 'Kanit', sans-serif; background-color: #f8fafc; }
+        .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(226, 232, 240, 0.8); }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 8px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
-<body class="p-4 md:p-8">
-
-    <div class="max-w-7xl mx-auto">
-        <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-                <h1 class="text-3xl font-bold text-slate-800">รายงาน Maintenance Electric</h1>
-                <p class="text-slate-500">ติดตามและวิเคราะห์สถานะงานไฟฟ้าประจำวันอย่างแม่นยำ</p>
-            </div>
-            <!-- ปุ่มอัปเดตข้อมูลแบบดึงใหม่โดยตรงจาก Google Sheets ไม่ผ่าน Cache -->
-            <button onclick="refreshData()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-2xl shadow-lg transition duration-300 flex items-center justify-center gap-2 w-full md:w-auto">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.001 9.334a1 1 0 011.885.666 5.002 5.002 0 008.115 2.567H11a1 1 0 010-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566z" clip-rule="evenodd" />
-                </svg>
-                อัปเดตข้อมูล
-            </button>
-        </header>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8 glass-card p-6 rounded-3xl shadow-sm">
-            <div class="flex flex-col">
-                <label class="text-xs font-semibold text-slate-400 mb-1">เริ่ม</label>
-                <input type="date" id="dateStart" class="bg-slate-50 rounded-xl p-2 border border-slate-200">
-            </div>
-            <div class="flex flex-col">
-                <label class="text-xs font-semibold text-slate-400 mb-1">สิ้นสุด</label>
-                <input type="date" id="dateEnd" class="bg-slate-50 rounded-xl p-2 border border-slate-200">
-            </div>
-            <div class="flex flex-col">
-                <label class="text-xs font-semibold text-slate-400 mb-1">ประเภทงาน (I)</label>
-                <select id="filterType" class="bg-slate-50 rounded-xl p-2 border border-slate-200">
-                    <option value="">ทั้งหมด</option>
-                </select>
-            </div>
-            <div class="flex flex-col">
-                <label class="text-xs font-semibold text-slate-400 mb-1">ผู้รับผิดชอบ (E)</label>
-                <select id="filterPic" class="bg-slate-50 rounded-xl p-2 border border-slate-200">
-                    <option value="">ทั้งหมด</option>
-                </select>
-            </div>
-            <div class="flex flex-col">
-                <label class="text-xs font-semibold text-slate-400 mb-1">เครื่องจักร (F)</label>
-                <select id="filterMachine" class="bg-slate-50 rounded-xl p-2 border border-slate-200">
-                    <option value="">ทั้งหมด</option>
-                </select>
-            </div>
-            <div class="flex flex-col">
-                <label class="text-xs font-semibold text-slate-400 mb-1">สถานะ (K)</label>
-                <select id="filterStatus" class="bg-slate-50 rounded-xl p-2 border border-slate-200">
-                    <option value="">ทั้งหมด</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="glass-card p-6 rounded-3xl shadow-sm border-l-8 border-indigo-500">
-                <h3 class="text-slate-500 font-semibold">งานทั้งหมด</h3>
-                <p id="totalJobs" class="text-4xl font-bold text-slate-800">0</p>
-            </div>
-            <div class="glass-card p-6 rounded-3xl shadow-sm border-l-8 border-green-500">
-                <h3 class="text-slate-500 font-semibold">งานที่เสร็จ</h3>
-                <p id="finishedJobs" class="text-4xl font-bold text-green-600">0</p>
-                <p id="finishedPct" class="text-sm text-green-500 font-semibold">0%</p>
-            </div>
-            <div class="glass-card p-6 rounded-3xl shadow-sm border-l-8 border-amber-500">
-                <h3 class="text-slate-500 font-semibold">งานค้าง</h3>
-                <p id="pendingJobs" class="text-4xl font-bold text-amber-600">0</p>
-                <p id="pendingPct" class="text-sm text-amber-500 font-semibold">0%</p>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <!-- กราฟสถานะงานทรงกลม -->
-            <div class="glass-card p-6 rounded-3xl shadow-sm">
-                <div class="chart-container h-[350px]">
-                    <canvas id="statusChart"></canvas>
+<body class="text-slate-700 min-h-screen pb-12">
+    <nav class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-40 mb-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16 sm:h-20">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center font-bold text-2xl shadow-md">
+                        ⚡
+                    </div>
+                    <div>
+                        <h1 class="text-lg sm:text-xl font-bold text-slate-800 leading-tight">รายงาน Maintenance Electric</h1>
+                        <p class="text-xs sm:text-sm text-slate-500">ติดตามและวิเคราะห์สถานะงานไฟฟ้าประจำวัน</p>
+                    </div>
                 </div>
+                <button onclick="refreshData()" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl transition duration-200 shadow-md hover:shadow-lg active:scale-95">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    <span>อัปเดตข้อมูล</span>
+                </button>
             </div>
-            <!-- กราฟแท่งแนวนอนผู้รับผิดชอบงาน -->
-            <div class="glass-card p-6 rounded-3xl shadow-sm">
-                <div class="chart-container" style="min-height: 380px;">
-                    <canvas id="picChart"></canvas>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <div class="glass-card p-5 rounded-3xl shadow-sm">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">เริ่ม</label>
+                    <input type="date" id="filterStartDate" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">สิ้นสุด</label>
+                    <input type="date" id="filterEndDate" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">ประเภทงาน</label>
+                    <select id="filterType" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="">ทั้งหมด</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">ผู้รับผิดชอบ</label>
+                    <select id="filterPic" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="">ทั้งหมด</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">เครื่องจักร</label>
+                    <select id="filterMc" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="">ทั้งหมด</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">สถานะ</label>
+                    <select id="filterStatus" onchange="applyFilters()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="">ทั้งหมด</option>
+                    </select>
                 </div>
             </div>
         </div>
 
-        <div class="glass-card rounded-3xl shadow-sm overflow-hidden p-6">
-            <h3 class="text-lg font-bold text-slate-800 mb-4">ตารางข้อมูลงานไฟฟ้า</h3>
-            <div class="overflow-x-auto rounded-2xl border border-slate-100">
-                <table class="w-full text-left border-collapse" id="dataTable">
-                    <thead class="bg-slate-800 text-white uppercase text-xs" id="tableHeader"></thead>
-                    <tbody class="divide-y divide-slate-100 bg-white" id="tableBody"></tbody>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div class="glass-card p-6 rounded-3xl shadow-sm border-l-4 border-l-indigo-500">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">งานทั้งหมด</p>
+                <h3 id="totalJobs" class="text-3xl font-extrabold text-slate-800">0</h3>
+            </div>
+            <div class="glass-card p-6 rounded-3xl shadow-sm border-l-4 border-l-emerald-500">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">งานที่เสร็จ</p>
+                <div class="flex items-baseline justify-between">
+                    <h3 id="finishedJobs" class="text-3xl font-extrabold text-emerald-600">0</h3>
+                    <span id="finishedPct" class="text-xs font-bold text-emerald-500 bg-emerald-50 px-2.5 py-1 rounded-full">0%</span>
+                </div>
+            </div>
+            <div class="glass-card p-6 rounded-3xl shadow-sm border-l-4 border-l-amber-500">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">งานค้าง</p>
+                <div class="flex items-baseline justify-between">
+                    <h3 id="pendingJobs" class="text-3xl font-extrabold text-amber-600">0</h3>
+                    <span id="pendingPct" class="text-xs font-bold text-amber-500 bg-amber-50 px-2.5 py-1 rounded-full">0%</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card p-6 rounded-3xl shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800">งานแยกตามผู้รับผิดชอบ</h3>
+                    <p class="text-xs text-slate-500">สรุปสัดส่วนภาระงานของช่างแต่ละคน</p>
+                </div>
+                <span class="text-xs text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full font-medium shadow-sm">
+                    💡 คลิกการ์ดเพื่อเปิดตารางงาน
+                </span>
+            </div>
+            <div id="techCardsContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Cards dynamically rendered here -->
+            </div>
+        </div>
+
+        <div class="glass-card p-6 rounded-3xl shadow-sm flex flex-col items-center justify-center">
+            <h3 class="text-lg font-bold text-slate-800 mb-2 self-start">สัดส่วนสถานะงาน</h3>
+            <div class="chart-container relative w-full max-w-md h-[280px]">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+
+        <div class="glass-card rounded-3xl shadow-sm overflow-hidden p-6 flex flex-col justify-between" id="tableSection">
+            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center justify-between">
+                <span>ตารางข้อมูลงานไฟฟ้าทั้งหมด</span>
+            </h3>
+            <div class="overflow-x-auto rounded-2xl border border-slate-100 max-h-[450px] overflow-y-auto">
+                <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                    <thead class="sticky top-0 z-10">
+                        <tr class="bg-slate-800 text-white font-medium">
+                            <th class="p-3.5 whitespace-nowrap">วันที่จ่ายงาน</th>
+                            <th class="p-3.5 whitespace-nowrap">กำหนดเสร็จ</th>
+                            <th class="p-3.5 whitespace-nowrap">เสร็จจริง</th>
+                            <th class="p-3.5">รายละเอียดงาน</th>
+                            <th class="p-3.5 whitespace-nowrap">ผู้รับผิดชอบ</th>
+                            <th class="p-3.5 whitespace-nowrap">เครื่องจักร</th>
+                            <th class="p-3.5 whitespace-nowrap">STATION</th>
+                            <th class="p-3.5 whitespace-nowrap">ประเภทช่าง</th>
+                            <th class="p-3.5 whitespace-nowrap">ประเภทงาน</th>
+                            <th class="p-3.5 whitespace-nowrap">ผู้แจ้ง</th>
+                            <th class="p-3.5 whitespace-nowrap text-center">สถานะ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTableBody" class="divide-y divide-slate-100 bg-white">
+                        <!-- Main table data -->
+                    </tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <script>
-        // ใช้ลิงก์ CSV จาก Google Sheets
-        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJTzys96pLM72Ip3Pj5iqCLzRX54FB1wjuwDbZmB7o6uDgXtTFX251GprI7BX4WN_Iy13F-Uopi5sq/pub?gid=1734643829&single=true&output=csv';
-        let rawData = [];
-        let statusChart, picChart;
+    <div id="techModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 transition-opacity duration-300 opacity-0">
+        <div class="glass-card bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden transform scale-95 transition-transform duration-300" id="techModalBox">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                <div class="flex items-center gap-3" id="modalTechHeader">
+                    <!-- Populated by JS -->
+                </div>
+                <button onclick="closeTechModal()" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition font-bold text-lg">
+                    ✕
+                </button>
+            </div>
+            <!-- Modal Body (Table) -->
+            <div class="p-6 overflow-y-auto flex-1">
+                <div class="overflow-x-auto rounded-2xl border border-slate-200">
+                    <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                        <thead class="sticky top-0 bg-slate-800 text-white font-medium z-10">
+                            <tr>
+                                <th class="p-3.5 whitespace-nowrap">วันที่จ่ายงาน</th>
+                                <th class="p-3.5 whitespace-nowrap">กำหนดเสร็จ</th>
+                                <th class="p-3.5 whitespace-nowrap">เสร็จจริง</th>
+                                <th class="p-3.5">รายละเอียดงาน</th>
+                                <th class="p-3.5 whitespace-nowrap">เครื่องจักร</th>
+                                <th class="p-3.5 whitespace-nowrap">STATION</th>
+                                <th class="p-3.5 whitespace-nowrap">ประเภทช่าง</th>
+                                <th class="p-3.5 whitespace-nowrap">ประเภทงาน</th>
+                                <th class="p-3.5 whitespace-nowrap">ผู้แจ้ง</th>
+                                <th class="p-3.5 whitespace-nowrap text-center">สถานะ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalTableBody" class="divide-y divide-slate-100 bg-white">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- Modal Footer -->
+            <div class="px-6 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between text-xs text-slate-500">
+                <span id="modalSummaryCount">รวม 0 งาน</span>
+                <button onclick="closeTechModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-medium transition shadow-sm">
+                    ปิดหน้าต่าง
+                </button>
+            </div>
+        </div>
+    </div>
 
-        // ดึงวันที่โดยตรงจากคอลัมน์ A (ไม่มีการหักลบหรือแปลงค่าปี ค.ศ. ใดๆ)
+    <script>
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJTzys96pLM72Ip3Pj5iqCLzRX54FB1wjuwDbZmB7o6uDgXtTFX251GprI7BX4WN_Iy13F-Uopi5sq/pub?gid=1734643829&single=true&output=csv';
+        const TECH_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQJTzys96pLM72Ip3Pj5iqCLzRX54FB1wjuwDbZmB7o6uDgXtTFX251GprI7BX4WN_Iy13F-Uopi5sq/pub?gid=321249405&single=true&output=csv';
+        
+        let rawData = [];
+        let currentFilteredData = [];
+        let techImages = {};
+        let statusChart = null;
+
+        // ฟังก์ชันแปลงวันที่ในรูปแบบ D/M/YYYY
         function parseThaiDate(dateStr) {
-            if (!dateStr || dateStr.trim() === '' || dateStr === '-') return null;
-            const parts = dateStr.split('/');
-            if (parts.length !== 3) return null;
-            const d = parseInt(parts[0], 10);
-            const m = parseInt(parts[1], 10);
-            const y = parseInt(parts[2], 10);
-            return new Date(y, m - 1, d);
+            if (!dateStr || dateStr.trim() === '' || dateStr.trim() === '-') return null;
+            const parts = dateStr.trim().split('/');
+            if (parts.length === 3) {
+                const d = parseInt(parts[0], 10);
+                const m = parseInt(parts[1], 10) - 1;
+                let y = parseInt(parts[2], 10);
+                if (isNaN(d) || isNaN(m) || isNaN(y)) return null;
+                if (y > 2400) y -= 543; // แปลง พ.ศ. เป็น ค.ศ. หากเป็น พ.ศ.
+                return new Date(y, m, d);
+            }
+            return null;
         }
 
-        // แปลงฟอร์แมตวันที่ให้ถูกต้องสำหรับใส่ใน Input Date
-        function formatDateToYYYYMMDD(date) {
-            const yyyy = date.getFullYear();
-            const mm = String(date.getMonth() + 1).padStart(2, '0');
-            const dd = String(date.getDate()).padStart(2, '0');
+        function formatDateToInput(dateObj) {
+            if (!dateObj || isNaN(dateObj.getTime())) return '';
+            const yyyy = dateObj.getFullYear();
+            const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const dd = String(dateObj.getDate()).padStart(2, '0');
             return `${yyyy}-${mm}-${dd}`;
         }
 
-        // ฟังก์ชันดึงข้อมูลใหม่ (ข้าม cache โดยต่อ timestamp ท้าย url)
+        // ดึงข้อมูลหลักและรูปภาพ
         function refreshData() {
-            fetch(CSV_URL + '&t=' + new Date().getTime())
+            const timestamp = new Date().getTime();
+            
+            fetch(TECH_CSV_URL + '&t=' + timestamp)
+                .then(r => r.text())
+                .then(text => {
+                    Papa.parse(text, {
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: res => {
+                            techImages = {};
+                            res.data.forEach(row => {
+                                const keys = Object.keys(row);
+                                const name = row[keys[0]] ? row[keys[0]].trim() : '';
+                                let imgUrl = row[keys[1]] ? row[keys[1]].trim() : '';
+                                
+                                const driveMatch = imgUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || imgUrl.match(/id=([a-zA-Z0-9_-]+)/);
+                                if (driveMatch && imgUrl.includes('drive.google.com')) {
+                                    imgUrl = `https://lh3.googleusercontent.com/d/${driveMatch[1]}`;
+                                }
+
+                                if (name && imgUrl) {
+                                    techImages[name] = imgUrl;
+                                }
+                            });
+                            applyFilters();
+                        }
+                    });
+                })
+                .catch(err => console.error("ไม่สามารถดึงข้อมูลรูปภาพช่างได้:", err));
+
+            fetch(CSV_URL + '&t=' + timestamp)
                 .then(r => r.text())
                 .then(text => {
                     Papa.parse(text, { 
@@ -160,79 +275,88 @@
                             setDefaultDateRange(); 
                         }
                     });
-                });
+                })
+                .catch(err => console.error("ไม่สามารถดึงข้อมูล CSV หลักได้:", err));
         }
 
-        // ตั้งค่าตัวกรองเริ่มต้นเป็นช่วง 7 วันล่าสุดที่มีข้อมูลจริงในระบบ
-        function setDefaultDateRange() {
-            const dateCol = Object.keys(rawData[0] || {})[0];
-            const dates = rawData.map(d => parseThaiDate(d[dateCol])).filter(d => d instanceof Date && !isNaN(d));
+        // สร้างตัวเลือกใน Dropdown ตัวกรอง
+        function initFilters() {
+            if (!rawData || rawData.length === 0) return;
+            const cols = Object.keys(rawData[0]);
             
-            if (dates.length > 0) {
-                const maxDate = new Date(Math.max(...dates));
+            populateSelect('filterType', cols[8]);
+            populateSelect('filterPic', cols[4]);
+            populateSelect('filterMc', cols[5]);
+            populateSelect('filterStatus', cols[10]);
+        }
+
+        function populateSelect(id, key) {
+            const select = document.getElementById(id);
+            if (!select) return;
+            const currentVal = select.value;
+            const values = [...new Set(rawData.map(d => d[key]).filter(v => v && v.trim() !== ''))].sort();
+            
+            select.innerHTML = '<option value="">ทั้งหมด</option>' + 
+                values.map(v => `<option value="${v}">${v}</option>`).join('');
+            select.value = currentVal;
+        }
+
+        // ตั้งช่วงวันที่เริ่มต้น 7 วันย้อนหลังจากวันที่มีข้อมูลล่าสุด
+        function setDefaultDateRange() {
+            if (!rawData || rawData.length === 0) return;
+            const cols = Object.keys(rawData[0]);
+            const dateKey = cols[0];
+
+            let validDates = rawData
+                .map(d => parseThaiDate(d[dateKey]))
+                .filter(d => d !== null)
+                .sort((a, b) => b - a);
+
+            if (validDates.length > 0) {
+                const maxDate = validDates[0];
                 const minDate = new Date(maxDate);
-                minDate.setDate(maxDate.getDate() - 7);
-                
-                document.getElementById('dateStart').value = formatDateToYYYYMMDD(minDate);
-                document.getElementById('dateEnd').value = formatDateToYYYYMMDD(maxDate);
+                minDate.setDate(minDate.getDate() - 6);
+
+                document.getElementById('filterStartDate').value = formatDateToInput(minDate);
+                document.getElementById('filterEndDate').value = formatDateToInput(maxDate);
             }
             applyFilters();
         }
 
-        // เริ่มต้นสร้างตัวเลือกใน Select Filters ต่างๆ
-        function initFilters() {
-            const cols = Object.keys(rawData[0] || {});
-            const filterMap = { 
-                'filterType': cols[8], 
-                'filterPic': cols[4], 
-                'filterMachine': cols[5], 
-                'filterStatus': cols[10] 
-            };
-            for (const [id, key] of Object.entries(filterMap)) {
-                const el = document.getElementById(id);
-                const vals = [...new Set(rawData.map(d => d[key]).filter(Boolean))];
-                el.innerHTML = '<option value="">ทั้งหมด</option>' + vals.map(v => `<option value="${v}">${v}</option>`).join('');
-                el.onchange = applyFilters;
-            }
-            ['dateStart', 'dateEnd'].forEach(id => document.getElementById(id).onchange = applyFilters);
-        }
-
-        // คัดกรองและดึงผลลัพธ์ข้อมูลตามผู้ใช้งานเลือก
         function applyFilters() {
-            const cols = Object.keys(rawData[0] || {});
-            const filters = {
-                type: document.getElementById('filterType').value,
-                pic: document.getElementById('filterPic').value,
-                machine: document.getElementById('filterMachine').value,
-                status: document.getElementById('filterStatus').value,
-                start: document.getElementById('dateStart').value,
-                end: document.getElementById('dateEnd').value
-            };
+            if (!rawData || rawData.length === 0) return;
+            const cols = Object.keys(rawData[0]);
             
-            const filtered = rawData.filter(d => {
-                const matches = [
-                    (!filters.type || d[cols[8]] === filters.type),
-                    (!filters.pic || d[cols[4]] === filters.pic),
-                    (!filters.machine || d[cols[5]] === filters.machine),
-                    (!filters.status || d[cols[10]] === filters.status)
-                ];
-                if (filters.start || filters.end) {
-                    const dDate = parseThaiDate(d[cols[0]]);
-                    if (dDate) {
-                        const start = filters.start ? new Date(filters.start + 'T00:00:00') : new Date(0);
-                        const end = filters.end ? new Date(filters.end + 'T23:59:59') : new Date(9999, 11, 31);
-                        matches.push(dDate >= start && dDate <= end);
-                    } else {
-                        // คัดข้อมูลที่ระบุวันที่ไม่ถูกต้องออก ป้องกันข้อมูลรั่วไหลในสเปรดชีต
-                        matches.push(false);
-                    }
+            const startDateVal = document.getElementById('filterStartDate').value;
+            const endDateVal = document.getElementById('filterEndDate').value;
+            const typeVal = document.getElementById('filterType').value;
+            const picVal = document.getElementById('filterPic').value;
+            const mcVal = document.getElementById('filterMc').value;
+            const statusVal = document.getElementById('filterStatus').value;
+
+            const start = startDateVal ? new Date(startDateVal + 'T00:00:00') : null;
+            const end = endDateVal ? new Date(endDateVal + 'T23:59:59') : null;
+
+            currentFilteredData = rawData.filter(d => {
+                const dateVal = parseThaiDate(d[cols[0]]);
+                
+                if (start || end) {
+                    if (!dateVal) return false;
+                    if (start && dateVal < start) return false;
+                    if (end && dateVal > end) return false;
                 }
-                return matches.every(Boolean);
+
+                if (typeVal && d[cols[8]] !== typeVal) return false;
+                if (picVal && d[cols[4]] !== picVal) return false;
+                if (mcVal && d[cols[5]] !== mcVal) return false;
+                if (statusVal && d[cols[10]] !== statusVal) return false;
+
+                return true;
             });
-            updateDashboard(filtered);
+
+            updateDashboard(currentFilteredData);
         }
 
-        // ฟังก์ชันประมวลผลข้อมูลและเปลี่ยนหน้าสรุปผล
         function updateDashboard(data) {
             const cols = Object.keys(rawData[0] || {});
             const statusKey = cols[10];
@@ -244,46 +368,221 @@
             document.getElementById('finishedPct').innerText = data.length ? Math.round((finished / data.length) * 100) + '%' : '0%';
             document.getElementById('pendingJobs').innerText = pending;
             document.getElementById('pendingPct').innerText = data.length ? Math.round((pending / data.length) * 100) + '%' : '0%';
-            
+
             renderTable(data, cols);
-            renderCharts(data, statusKey, cols[4]);
+            renderCharts(data, statusKey);
+            renderTechCards(data, cols[4]);
         }
 
-        // ฟังก์ชันจัดการตารางแสดงข้อมูลอย่างถูกต้อง (ป้องกันการแสดงข้อมูลค้าง)
-        function renderTable(data, cols) {
-            const header = document.getElementById('tableHeader');
-            const body = document.getElementById('tableBody');
-            
-            if (!header || !body) return;
-            
-            // แสดงส่วนหัวตาราง
-            header.innerHTML = `<tr>${cols.map(c => `<th class="p-4 font-semibold text-slate-200 text-sm whitespace-nowrap">${c}</th>`).join('')}</tr>`;
-            
-            // แสดงข้อมูลในแต่ละแถวของตาราง
-            if (data.length === 0) {
-                body.innerHTML = `<tr><td colspan="${cols.length}" class="p-8 text-center text-slate-400">ไม่พบข้อมูลงานตามช่วงเวลาหรือตัวเลือกที่ระบุ</td></tr>`;
+        // จัดการเมื่อรูปช่างเกิดข้อผิดพลาดในการโหลด
+        function handleAvatarError(imgEl, initial) {
+            const parent = imgEl.parentElement;
+            if (parent) {
+                parent.innerHTML = `<div class="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-700 text-white font-bold flex items-center justify-center border-4 border-indigo-100 text-xl sm:text-2xl flex-shrink-0 shadow-md">${initial}</div>`;
+            }
+        }
+
+        function renderTechCards(data, pKey) {
+            const container = document.getElementById('techCardsContainer');
+            if (!container) return;
+
+            const pCounts = data.reduce((acc, d) => {
+                const name = d[pKey] ? d[pKey].trim() : 'ไม่ระบุ';
+                acc[name] = (acc[name] || 0) + 1;
+                return acc;
+            }, {});
+
+            const totalFilteredJobs = data.length || 1;
+            const techEntries = Object.entries(pCounts).sort((a, b) => b[1] - a[1]);
+
+            if (techEntries.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center text-slate-400 py-6 text-sm">ไม่พบข้อมูลผู้รับผิดชอบในช่วงเวลานี้</div>`;
                 return;
             }
 
-            body.innerHTML = data.map(row => {
-                return `<tr class="hover:bg-slate-50 transition duration-150">
-                    ${cols.map(c => `<td class="p-4 text-sm text-slate-700 border-b border-slate-100 whitespace-nowrap">${row[c] || '-'}</td>`).join('')}
-                </tr>`;
+            const colors = ['bg-indigo-500', 'bg-pink-500', 'bg-amber-500', 'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-cyan-500'];
+
+            container.innerHTML = techEntries.map(([name, count], index) => {
+                const pct = Math.round((count / totalFilteredJobs) * 100);
+                const imgUrl = techImages[name];
+                const initial = name ? name.charAt(0) : '?';
+                const barColor = colors[index % colors.length];
+
+                const avatarHtml = imgUrl 
+                    ? `<img src="${imgUrl}" alt="${name}" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-4 border-indigo-100 shadow-md flex-shrink-0 transition-transform duration-200 group-hover:scale-105" onerror="handleAvatarError(this, '${initial}')">`
+                    : `<div class="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-700 text-white font-bold flex items-center justify-center border-4 border-indigo-100 text-xl sm:text-2xl flex-shrink-0 shadow-md">${initial}</div>`;
+
+                return `
+                    <div onclick="openTechModal('${name}')" 
+                         class="cursor-pointer p-5 sm:p-6 rounded-3xl border border-slate-100 bg-white/95 hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 flex items-center gap-4 sm:gap-5 relative group">
+                        ${avatarHtml}
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between gap-2 mb-1.5">
+                                <h4 class="font-bold text-slate-800 text-base sm:text-lg truncate group-hover:text-indigo-600 transition-colors">${name}</h4>
+                                <span class="text-xs sm:text-sm font-bold px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 shadow-sm flex-shrink-0">
+                                    ${count} งาน
+                                </span>
+                            </div>
+                            <div class="flex items-center justify-between text-xs sm:text-sm text-slate-500 mb-2 font-medium">
+                                <span>สัดส่วนงาน</span>
+                                <span class="font-extrabold text-slate-700">${pct}%</span>
+                            </div>
+                            <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden p-0.5 border border-slate-100">
+                                <div class="${barColor} h-full rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
             }).join('');
         }
 
-        // ฟังก์ชันวาดกราฟวิเคราะห์ (แก้ไขปัญหาขนาดตัวเลขและล้นขอบจอเรียบร้อย)
-        function renderCharts(data, sKey, pKey) {
-            if (statusChart) statusChart.destroy();
-            if (picChart) picChart.destroy();
+        function openTechModal(techName) {
+            if (!rawData || rawData.length === 0) return;
+            const cols = Object.keys(rawData[0]);
+            const pKey = cols[4];
+            const statusKey = cols[10];
+
+            // Filter jobs specifically for this technician within current active scope
+            const techJobs = currentFilteredData.filter(d => (d[pKey] ? d[pKey].trim() : 'ไม่ระบุ') === techName);
+
+            const imgUrl = techImages[techName];
+            const initial = techName ? techName.charAt(0) : '?';
+            const avatarHtml = imgUrl 
+                ? `<img src="${imgUrl}" alt="${techName}" class="w-10 h-10 rounded-full object-cover border-2 border-indigo-400 shadow-sm flex-shrink-0" onerror="handleAvatarError(this, '${initial}')">`
+                : `<div class="w-10 h-10 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center border-2 border-indigo-200 text-sm flex-shrink-0 shadow-sm">${initial}</div>`;
+
+            // Build Modal Header
+            document.getElementById('modalTechHeader').innerHTML = `
+                ${avatarHtml}
+                <div>
+                    <h3 class="text-base font-bold text-slate-800 leading-tight">ตารางงานของ: ${techName}</h3>
+                    <p class="text-xs text-slate-500">รวมทั้งหมด ${techJobs.length} งานในช่วงเวลาที่เลือก</p>
+                </div>
+            `;
+
+            // Build Modal Table Body
+            const modalTbody = document.getElementById('modalTableBody');
+            if (techJobs.length === 0) {
+                modalTbody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-slate-400">ไม่พบรายการงานสำหรับช่างคนนี้</td></tr>`;
+            } else {
+                modalTbody.innerHTML = techJobs.map((row, idx) => {
+                    const status = row[statusKey];
+                    const statusClass = status === 'เสร็จแล้ว' 
+                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
+                        : 'bg-amber-50 text-amber-600 border border-amber-200';
+
+                    return `
+                        <tr class="${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-indigo-50/30 transition-colors">
+                            <td class="p-3 whitespace-nowrap font-medium text-slate-700">${row[cols[0]] || '-'}</td>
+                            <td class="p-3 whitespace-nowrap text-slate-500">${row[cols[1]] || '-'}</td>
+                            <td class="p-3 whitespace-nowrap text-slate-500">${row[cols[2]] || '-'}</td>
+                            <td class="p-3 font-medium text-slate-800 min-w-[200px]">${row[cols[3]] || '-'}</td>
+                            <td class="p-3 whitespace-nowrap text-slate-600">${row[cols[5]] || '-'}</td>
+                            <td class="p-3 whitespace-nowrap text-slate-500">${row[cols[6]] || '-'}</td>
+                            <td class="p-3 whitespace-nowrap text-slate-500">${row[cols[7]] || '-'}</td>
+                            <td class="p-3 whitespace-nowrap text-slate-600">${row[cols[8]] || '-'}</td>
+                            <td class="p-3 whitespace-nowrap text-slate-500">${row[cols[9]] || '-'}</td>
+                            <td class="p-3 whitespace-nowrap text-center">
+                                <span class="inline-block text-xs px-2.5 py-1 rounded-full font-semibold ${statusClass}">
+                                    ${status || 'ไม่ระบุ'}
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            document.getElementById('modalSummaryCount').innerText = `แสดงรายการงานของ ${techName} จำนวน ${techJobs.length} รายการ`;
+
+            const modal = document.getElementById('techModal');
+            const box = document.getElementById('techModalBox');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                box.classList.remove('scale-95');
+                box.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeTechModal() {
+            const modal = document.getElementById('techModal');
+            const box = document.getElementById('techModalBox');
+            modal.classList.add('opacity-0');
+            box.classList.remove('scale-100');
+            box.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        // Close modal on clicking backdrop
+        document.getElementById('techModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeTechModal();
+            }
+        });
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeTechModal();
+            }
+        });
+
+        function renderTable(data, cols) {
+            const tbody = document.getElementById('dataTableBody');
+            if (!tbody) return;
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${cols.length}" class="text-center py-8 text-slate-400">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = data.map((row, idx) => {
+                const status = row[cols[10]];
+                const statusClass = status === 'เสร็จแล้ว' 
+                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
+                    : 'bg-amber-50 text-amber-600 border border-amber-200';
+
+                return `
+                    <tr class="${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-indigo-50/30 transition-colors">
+                        <td class="p-3.5 whitespace-nowrap font-medium text-slate-700">${row[cols[0]] || '-'}</td>
+                        <td class="p-3.5 whitespace-nowrap text-slate-500">${row[cols[1]] || '-'}</td>
+                        <td class="p-3.5 whitespace-nowrap text-slate-500">${row[cols[2]] || '-'}</td>
+                        <td class="p-3.5 font-medium text-slate-800 min-w-[200px]">${row[cols[3]] || '-'}</td>
+                        <td class="p-3.5 whitespace-nowrap font-medium text-slate-700">${row[cols[4]] || '-'}</td>
+                        <td class="p-3.5 whitespace-nowrap text-slate-600">${row[cols[5]] || '-'}</td>
+                        <td class="p-3.5 whitespace-nowrap text-slate-500">${row[cols[6]] || '-'}</td>
+                        <td class="p-3.5 whitespace-nowrap text-slate-500">${row[cols[7]] || '-'}</td>
+                        <td class="p-3.5 whitespace-nowrap text-slate-600">${row[cols[8]] || '-'}</td>
+                        <td class="p-3.5 whitespace-nowrap text-slate-500">${row[cols[9]] || '-'}</td>
+                        <td class="p-3.5 whitespace-nowrap text-center">
+                            <span class="inline-block text-xs px-2.5 py-1 rounded-full font-semibold ${statusClass}">
+                                ${status || 'ไม่ระบุ'}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderCharts(data, sKey) {
+            if (statusChart) {
+                statusChart.destroy();
+            }
             
             Chart.register(ChartDataLabels);
             
-            const sCounts = data.reduce((acc, d) => { acc[d[sKey]] = (acc[d[sKey]] || 0) + 1; return acc; }, {});
-            const pCounts = data.reduce((acc, d) => { acc[d[pKey]] = (acc[d[pKey]] || 0) + 1; return acc; }, {});
+            const sCounts = data.reduce((acc, d) => { 
+                const s = d[sKey] || 'ไม่ระบุ';
+                acc[s] = (acc[s] || 0) + 1; 
+                return acc; 
+            }, {});
 
-            // 1. กราฟวงกลมแสดงสถานะงาน
-            statusChart = new Chart(document.getElementById('statusChart'), {
+            const canvas = document.getElementById('statusChart');
+            if (!canvas) return;
+
+            statusChart = new Chart(canvas, {
                 type: 'doughnut',
                 data: { 
                     labels: Object.keys(sCounts), 
@@ -298,67 +597,17 @@
                     plugins: {
                         datalabels: { 
                             color: '#fff', 
-                            font: { weight: 'bold', size: 14 }, 
-                            formatter: (v, ctx) => `${v} (${Math.round(v / data.length * 100)}%)` 
-                        },
-                        title: { 
-                            display: true, 
-                            text: 'สถานะงานทั้งหมด',
-                            font: { size: 16, weight: 'bold' }
-                        }
-                    }
-                }
-            });
-
-            // 2. กราฟแท่งแนวนอนสำหรับผู้รับผิดชอบงาน (จัดพื้นที่ขอบขวาเพื่อเลี่ยงการล้น)
-            picChart = new Chart(document.getElementById('picChart'), {
-                type: 'bar',
-                data: { 
-                    labels: Object.keys(pCounts), 
-                    datasets: [{ 
-                        label: 'จำนวนงาน', 
-                        data: Object.values(pCounts), 
-                        backgroundColor: ['#6366f1', '#ec4899', '#f59e0b', '#3b82f6', '#10b981'] 
-                    }] 
-                },
-                options: {
-                    indexAxis: 'y', 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    layout: {
-                        padding: {
-                            right: 90 // ให้พื้นที่ขอบด้านขวาของแคนวาส เพื่อกันตัวเลขตกหล่นออกนอกหน้าจอ
-                        }
-                    },
-                    plugins: {
-                        datalabels: { 
-                            anchor: 'end', 
-                            align: 'right', 
-                            offset: 6,
-                            font: { weight: 'bold', size: 14 }, 
-                            formatter: (v, ctx) => `${v} (${Math.round(v / data.length * 100)}%)` 
-                        },
-                        title: { 
-                            display: true, 
-                            text: 'งานแยกตามผู้รับผิดชอบ',
-                            font: { size: 16, weight: 'bold' }
+                            font: { weight: 'bold', size: 12 }, 
+                            formatter: (v, ctx) => `${v} (${data.length ? Math.round(v / data.length * 100) : 0}%)` 
                         },
                         legend: {
-                            display: false
+                            position: 'bottom'
                         }
-                    },
-                    scales: { 
-                        x: { 
-                            beginAtZero: true, 
-                            grace: '25%', // ขยายสเกลปลายแท่งเพิ่มอีก 25% มั่นใจได้ว่าตัวเลขจะไม่เบียดตกขอบจอ
-                            ticks: { precision: 0 } 
-                        } 
                     }
                 }
             });
         }
 
-        // สั่งให้ดาวน์โหลดข้อมูลทันทีที่เปิดหน้าเว็บ
         window.onload = refreshData;
     </script>
 </body>
